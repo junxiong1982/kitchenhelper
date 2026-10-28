@@ -1,4 +1,3 @@
-import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
@@ -6,30 +5,22 @@ import { timingSafeEqual } from 'node:crypto';
 import { validateUpload, saveUpload, loadUploads } from './imports.js';
 
 const root = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(root, 'operating data');
 const referenceDir = path.join(root, 'reference-data');
+let sampleProvider = async () => ({ stock: [], staff: { records: [] }, leave: { records: [] }, availability: { records: [] }, csv: '' });
+export function setSampleProvider(provider) { sampleProvider = provider; }
 async function loadLocalEnv() {
-  try {
-    const contents = await readFile(path.join(root, '.env'), 'utf8');
-    for (const line of contents.split(/\r?\n/)) {
-      const match = line.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
-      if (match && process.env[match[1]] === undefined) process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
-    }
-  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (const name of ['.env', '.env.local']) {
+    try {
+      const contents = await readFile(path.join(root, name), 'utf8');
+      for (const line of contents.split(/\r?\n/)) {
+        const match = line.match(/^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*=[ \t]*(.*?)[ \t]*$/);
+        if (match && !process.env[match[1]]) process.env[match[1]] = match[2].replace(/^(['"])(.*)\1$/, '$2');
+      }
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  }
 }
 await loadLocalEnv();
 const readJson = async name => JSON.parse(await readFile(path.join(referenceDir, name), 'utf8'));
-async function sampleJson(name, fallback) {
-  if (process.env.VERCEL) return fallback;
-  try { return JSON.parse(await readFile(path.join(dataDir, name), 'utf8')); }
-  catch (error) { if (error.code === 'ENOENT') return fallback; throw error; }
-}
-async function sampleCsv() {
-  if (process.env.VERCEL) return '';
-  try { return await readFile(path.join(dataDir, 'CRM_Weekly_Sales_Orders_2026-10-28.csv'), 'utf8'); }
-  catch (error) { if (error.code === 'ENOENT') return ''; throw error; }
-}
-
 function parseCsv(text) {
   const rows = [];
   let row = [], field = '', quoted = false;
@@ -55,17 +46,14 @@ async function calculate() {
     try { uploaded = await loadUploads(); }
     catch (error) { if (process.env.VERCEL) throw error; databaseError = 'Database connection unavailable; showing local sample files.'; }
   }
-  const [scenario, catalog, supplier, sampleStock, sampleStaff, sampleLeave, sampleAvailability, csv] = await Promise.all([
-    readJson('scenario.json'), readJson('products_and_recipes.json'), readJson('supplier.json'),
-    sampleJson('current_inventory.json', []), sampleJson('HR_Staff_Master_2026-11.json', { records: [] }),
-    sampleJson('HR_Leave_2026-11.json', { records: [] }), sampleJson('HR_Part_Time_Availability_2026-11.json', { records: [] }),
-    sampleCsv()
+  const [scenario, catalog, supplier, sample] = await Promise.all([
+    readJson('scenario.json'), readJson('products_and_recipes.json'), readJson('supplier.json'), sampleProvider()
   ]);
-  const stock = uploaded.stock?.payload.records ?? sampleStock;
-  const staffFile = { records: uploaded.staff?.payload.records ?? sampleStaff.records };
-  const leaveFile = { records: uploaded.leave?.payload.records ?? sampleLeave.records };
-  const availabilityFile = { records: uploaded.availability?.payload.records ?? sampleAvailability.records };
-  const orders = uploaded.crm?.payload.records ?? (csv ? parseCsv(csv) : []);
+  const stock = uploaded.stock?.payload.records ?? sample.stock;
+  const staffFile = { records: uploaded.staff?.payload.records ?? sample.staff.records };
+  const leaveFile = { records: uploaded.leave?.payload.records ?? sample.leave.records };
+  const availabilityFile = { records: uploaded.availability?.payload.records ?? sample.availability.records };
+  const orders = uploaded.crm?.payload.records ?? (sample.csv ? parseCsv(sample.csv) : []);
   const cutoff = Date.parse(scenario.order_cutoff);
   const eligible = [], excluded = [];
   for (const order of orders) {
@@ -178,7 +166,4 @@ export default async function handler(req, res) {
     if (req.url === '/api/plan') { res.writeHead(200, { 'content-type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(plan)); }
     else { res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' }); res.end(page(plan)); }
   } catch (error) { res.writeHead(500, { 'content-type': 'text/plain; charset=utf-8' }); res.end(`Could not load local planning data: ${error.message}`); }
-}
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  http.createServer(handler).listen(4173, '127.0.0.1', () => console.log('Kitchen Planner running at http://127.0.0.1:4173'));
 }

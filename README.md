@@ -8,6 +8,8 @@ The project has a private `.env` file with a blank `OPENAI_API_KEY` setting. To 
 
 The **Test OpenAI** button sends one short request to the OpenAI Responses API using `gpt-6-luna`. The full three-agent planner is not implemented yet. The upload forms validate stock, HR and CRM files and save accepted exports to PostgreSQL when `DATABASE_URL` points to a working database. Gmail/Zapier actions are not connected. Gmail/Zapier access must be connected through an approved integration when that feature is built.
 
+The Vercel deployment uses HTTP Basic authentication. Its private password is stored in `.planner-password` on this Mac and as `APP_PASSWORD` in Vercel. Use any username when prompted and the value from that private file as the password. Keep `.planner-password` private; it is excluded from Git and deployment files.
+
 ## Start it
 
 1. Install Node.js 18 or newer if it is not already installed.

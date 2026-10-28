@@ -1,0 +1,11 @@
+.env
+.env.*
+.git/
+.vercel/
+.agents/
+skills-lock.json
+local-server.js
+.planner-password
+.DS_Store
+operating data/
+operating-data/

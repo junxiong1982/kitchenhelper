@@ -7,3 +7,6 @@ operating data/
 operating-data/
 .DS_Store
 .vercel/
+.agents/
+skills-lock.json
+.planner-password
