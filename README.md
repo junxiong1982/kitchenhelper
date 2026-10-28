@@ -10,6 +10,8 @@ The **Test OpenAI** button sends one short request to the OpenAI Responses API u
 
 The Vercel deployment uses HTTP Basic authentication. Its private password is stored in `.planner-password` on this Mac and as `APP_PASSWORD` in Vercel. Use any username when prompted and the value from that private file as the password. Keep `.planner-password` private; it is excluded from Git and deployment files.
 
+Hosted app: <https://kitchenhelper-david-ng.vercel.app>. Vercel may first ask you to sign in to your Vercel account; then the app asks for the password described above.
+
 ## Start it
 
 1. Install Node.js 18 or newer if it is not already installed.

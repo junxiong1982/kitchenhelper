@@ -2,10 +2,15 @@ import pg from 'pg';
 
 let pool;
 let schemaReady = false;
+function verifiedConnectionString(value) {
+  const url = new URL(value);
+  if (url.searchParams.get('sslmode') === 'require') url.searchParams.set('sslmode', 'verify-full');
+  return url.toString();
+}
 
 async function database() {
   if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is not configured on the server.');
-  pool ??= new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 3, connectionTimeoutMillis: 5000 });
+  pool ??= new pg.Pool({ connectionString: verifiedConnectionString(process.env.DATABASE_URL), max: 3, connectionTimeoutMillis: 5000 });
   if (!schemaReady) {
     await pool.query(`CREATE TABLE IF NOT EXISTS kitchen_imports (
       kind text NOT NULL,
